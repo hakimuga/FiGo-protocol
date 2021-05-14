@@ -1,0 +1,385 @@
+@cpp(src="ext-cpp/utilities.cpp,ext-cpp/trace_helper.cpp,ext-cpp/proba_helper.cpp", include="utilities.hpp,trace_helper.hpp,proba_helper.hpp")
+package figo
+
+
+
+
+    
+    extern function int modulo(int function_param_0, int function_param_1)
+    
+    extern function int flooring(float function_param_0)
+    
+    extern function int maxClocks(int, int)
+    
+    extern function int minClocks(int, int)
+    
+    extern function int ceiling(float function_param_0)
+    
+    extern function printf(string function_param_0, int function_param_1, int function_param_2)
+    
+    extern function printf(string function_param_0, int function_param_1, float function_param_2)
+    
+    extern function printf(string function_param_0, float function_param_1)
+    
+    extern function printf(string function_param_0, int function_param_1)
+    
+    extern function printf(string function_param_0)
+
+    extern function int randomize( int function_param_1 )
+
+    
+    port type Port_Type_1 (string message, int time, int id, int metadata)
+    
+    port type Port_Type_2 ()
+
+    
+    connector type Link (Port_Type_1 Master, Port_Type_1 Slave)
+        define (Slave'
+         Master'
+        )
+    
+        on Master
+         
+        on Slave
+            down {
+                Slave.id = 0;
+            }
+        on Slave Master
+            down {
+                Slave.message = Master.message;
+                Slave.time = Master.time;
+                Slave.id = Master.id;
+                Slave.metadata = Master.metadata;
+            }
+    end
+
+    
+    connector type Synch (Port_Type_2 Master, Port_Type_2 Slave)
+        define (Slave         Master
+        )
+    
+    end
+
+    
+    atom type Sensor (int VID, int NEIGHBOURS)
+    
+        
+        data string MESSAGE
+        
+        data int LOCAL_CLOCK
+        
+        data int CYCLE_LENGTH
+        
+        data int REFRACTORY_PERIOD
+        
+        data int NEXT_BROADCAST
+        
+        data int SAME_COUNT
+        
+        data int SAME_THRESHOLD
+        
+        data int FULL
+        
+        data int LOCAL_MESSAGE_METADATA
+        
+        data int EXTERN_ID
+        
+        data int ID
+        
+        data int EXTERN_CLOCK
+        
+        data string EXTERN_MESSAGE
+        
+        data int MESSAGE_RECEIVED
+        
+        data int EXTERN_MESSAGE_METADATA
+        
+        data int temp
+        
+        data int CLOCK_STATE
+        
+        data int FLOOR
+    
+        
+        
+        export port Port_Type_1 Transmit(MESSAGE, LOCAL_CLOCK, ID, LOCAL_MESSAGE_METADATA)
+        
+        export port Port_Type_1 Receive(EXTERN_MESSAGE, EXTERN_CLOCK, EXTERN_ID, EXTERN_MESSAGE_METADATA)
+        
+         export port Port_Type_2 tick()
+        
+        port Port_Type_2 PHASE1_CLOCK_CYCLE_CHECK()
+
+        port Port_Type_2  PHASE1_CLOCK_CYCLE_CHECK_BROADCAST()
+
+        port Port_Type_2  PHASE1_CLOCK_CYCLE_CHECK_BROADCAST_ELSE ()
+        
+        port Port_Type_2 PHASE8_RESET()
+        
+        port Port_Type_2 SENSOR_MESSAGE_RECEIVE()
+        
+        port Port_Type_2 PHASE8_PROGRESS()
+        
+        port Port_Type_2 PHASE1_CLOCK_CYCLE_CHECK_ELSE()
+        
+        port Port_Type_2 MESSAGE_OVERHEARD()
+        
+        port Port_Type_2 MESSAGE_OVERHEARD_ELSE()
+        
+        port Port_Type_2 CLOCK_STATE_CHECK()
+        
+        port Port_Type_2 CLOCK_STATE_CHECK_ELSE()
+        
+        port Port_Type_2 UPDATE_CLOCK()
+        
+        port Port_Type_2 METADATA_GREAT()
+        
+        port Port_Type_2 METADATA_NOT_GREAT()
+        
+        port Port_Type_2 METADATA_LESS()
+        
+        port Port_Type_2 METADATA_NOT_LESS()
+        
+        port Port_Type_2 METADATA_EQUAL()
+        
+        port Port_Type_2 METADATA_NOT_EQUAL()
+        
+        place START, S1, S2, S11, S3, S4, S5, S6, S7, S9, S10, TRANSMIT_STATE
+        initial to START
+            do {
+                SAME_COUNT = 0;
+                LOCAL_CLOCK = 0;
+                CYCLE_LENGTH = 100;
+                REFRACTORY_PERIOD = flooring((CYCLE_LENGTH  /  2));
+                LOCAL_MESSAGE_METADATA = 0;
+	    ID = VID;
+	    NEXT_BROADCAST=50;//randomize(CYCLE_LENGTH);
+	    temp = NEXT_BROADCAST+ REFRACTORY_PERIOD;
+	    temp = modulo(temp, CYCLE_LENGTH);
+		printf("temp %d\n", temp);
+                SAME_THRESHOLD = 2;
+                EXTERN_ID = 0;
+		printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+
+		printf("NEXT_BROADCAST S%d.t %d\n", ID, NEXT_BROADCAST);
+		printf("REFRACTORY_PERIOD S%d.t %d\n", ID, REFRACTORY_PERIOD);
+
+		FULL= 1;
+            }
+            
+            on PHASE1_CLOCK_CYCLE_CHECK_BROADCAST
+                from START
+                to S1
+                provided (! (((LOCAL_CLOCK  ==  NEXT_BROADCAST)  ||  (LOCAL_CLOCK  ==  temp))  &&  (SAME_COUNT  <  SAME_THRESHOLD)))
+                do {
+                        printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+                }
+            
+            on PHASE1_CLOCK_CYCLE_CHECK_BROADCAST_ELSE
+                from START
+                to TRANSMIT_STATE
+                provided  (((LOCAL_CLOCK  ==  NEXT_BROADCAST)  ||  (LOCAL_CLOCK  ==  temp))  &&  (SAME_COUNT  <  SAME_THRESHOLD))
+                do {
+                        printf("Transmitting LOCAL_CLOCK SENSOR %d\n", ID);
+                        SAME_COUNT = 0;
+                        printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+                }
+
+            on Transmit
+                from TRANSMIT_STATE
+                to S2
+                do {
+                        printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+                }
+            
+            
+            on PHASE8_RESET
+                from S2
+                to S11
+                provided ((LOCAL_CLOCK  ==  CYCLE_LENGTH))
+                do {
+                        LOCAL_CLOCK = 0;
+                        SAME_COUNT = 0;
+                        printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+                }
+            
+            on tick
+                from S11
+                to START
+                do {
+                        printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+                        
+                }
+            
+            on PHASE8_PROGRESS
+                from S2
+                to S11
+                provided (! (LOCAL_CLOCK  ==  CYCLE_LENGTH))
+                do {
+                        LOCAL_CLOCK = (LOCAL_CLOCK  +  1);
+                        printf("SENSOR %d \n", ID);
+                        printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+                        printf("LOCAL_CLOCK %d \n", LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+                }
+            
+            on PHASE1_CLOCK_CYCLE_CHECK
+                from S1
+                to S3
+                provided ((LOCAL_CLOCK  <=  CYCLE_LENGTH))	 
+		   do{
+	    printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+		}
+            
+            on PHASE1_CLOCK_CYCLE_CHECK_ELSE
+                from S1
+                to S2
+                provided (! (LOCAL_CLOCK  <=  CYCLE_LENGTH))
+ 	    do{
+	    printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+		}
+           
+            on Receive
+                from S3
+                to S2
+                provided (EXTERN_ID==0) 
+		do{
+		
+                  printf("RECEIVING EXTERN_CLOCK SENSOR %d\n", EXTERN_ID);
+                        printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+                
+                }
+            
+            on SENSOR_MESSAGE_RECEIVE
+                from S3
+                to S4
+                provided ( !(EXTERN_ID==0) )
+             	    do{
+		MESSAGE_RECEIVED =MESSAGE_RECEIVED +1;
+		EXTERN_ID = 0;
+	    printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+		}
+
+            on MESSAGE_OVERHEARD
+                from S4
+                to S5 provided (MESSAGE_RECEIVED==1)
+             	    do{
+		MESSAGE_RECEIVED =0;
+	    printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+		}
+
+            on MESSAGE_OVERHEARD_ELSE
+                from S4
+                to S2 provided (! (MESSAGE_RECEIVED==1))
+             	    do{
+	    printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+		}
+
+            on CLOCK_STATE_CHECK
+                from S5
+                to S6
+                provided ((LOCAL_CLOCK  >=  REFRACTORY_PERIOD))
+             	    do{
+                        LOCAL_CLOCK = ceiling(( LOCAL_CLOCK+ EXTERN_CLOCK)  /  2);
+
+		printf("ESTABLISH NEW LOCAL_CLOCK  %d\n", LOCAL_CLOCK);
+	    printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+		}
+
+            on CLOCK_STATE_CHECK_ELSE
+                from S5
+                to S7
+                provided (! (LOCAL_CLOCK  >=  REFRACTORY_PERIOD))
+             	    do{
+	    printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+		}
+
+            on UPDATE_CLOCK
+                from S6
+                to S7
+                         	    do{
+	    printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+		}
+
+            on METADATA_NOT_GREAT
+                from S7
+                to S9
+                provided (! (EXTERN_MESSAGE_METADATA  >  LOCAL_MESSAGE_METADATA))
+             	    do{
+	    printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+		}
+
+            
+            on METADATA_NOT_LESS
+                from S9
+                to S10
+                provided (! ((SAME_COUNT  <  1)  &&  (EXTERN_MESSAGE_METADATA  >  LOCAL_MESSAGE_METADATA)))
+             	    do{
+	    printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+		}
+
+            on METADATA_EQUAL
+                from S10
+                to S2
+                provided (((EXTERN_CLOCK  ==  LOCAL_CLOCK)  &&  (EXTERN_MESSAGE_METADATA  ==  LOCAL_MESSAGE_METADATA)))
+                         	    do{
+	    printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+SAME_COUNT=SAME_COUNT+1;
+		}
+            on METADATA_LESS
+                from S9
+                to S2
+                provided (((SAME_COUNT  <  1)  &&  (EXTERN_MESSAGE_METADATA  >  LOCAL_MESSAGE_METADATA)))
+             	    do{
+	    printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+		}
+
+            on METADATA_GREAT
+                from S7
+                to S2
+                provided ((EXTERN_MESSAGE_METADATA  >  LOCAL_MESSAGE_METADATA))
+             	    do{
+	    printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+		}
+
+            on METADATA_NOT_EQUAL
+                from S10
+                to S2
+                provided (! ((EXTERN_CLOCK  ==  LOCAL_CLOCK)  &&  (EXTERN_MESSAGE_METADATA  ==  LOCAL_MESSAGE_METADATA)))
+     	    do{
+	    printf("var int S%d.t %d\n", ID, LOCAL_CLOCK);
+		printf("EXTERN_ID IN S%d.t %d\n", ID, EXTERN_ID);
+		}
+    
+    end
+
+    
+    compound type Compound ()
+    
+        component Sensor Component1 (1, 1)
+        component Sensor Component2 (2, 1)
+    
+        connector Link Connector1 (Component2.Transmit, Component1.Receive)
+        connector Link Connector2 (Component1.Transmit, Component2.Receive)
+        connector Synch Connector3 (Component1.tick, Component2.tick)
+    
+    end
+end
